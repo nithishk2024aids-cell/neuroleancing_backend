@@ -6,10 +6,12 @@ const generateToken = (res, userId) => {
         expiresIn: '30d'
     });
 
+    const isProduction = process.env.NODE_ENV === 'production';
+
     res.cookie('jwt', token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV !== 'development',
-        sameSite: 'strict',
+        secure: isProduction,
+        sameSite: isProduction ? 'none' : 'lax',
         maxAge: 30 * 24 * 60 * 60 * 1000
     });
 
@@ -61,13 +63,18 @@ export const loginUser = async (req, res) => {
         if (user && (await user.matchPassword(password))) {
             const token = generateToken(res, user.id);
             res.json({
-                _id: user.id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                profileImage: user.profileImage,
+                _id:             user.id,
+                name:            user.name,
+                email:           user.email,
+                role:            user.role,
+                profileImage:    user.profileImage,
                 profileComplete: user.profileComplete,
-                token
+                skills:          user.skills   || [],
+                title:           user.title    || '',
+                bio:             user.bio      || '',
+                location:        user.location || '',
+                hourlyRate:      user.hourlyRate ?? null,
+                token,
             });
         } else {
             res.status(401).json({ message: 'Invalid email or password' });
@@ -81,7 +88,12 @@ export const loginUser = async (req, res) => {
 // @route   POST /api/auth/logout
 // @access  Private
 export const logoutUser = (req, res) => {
-    res.cookie('jwt', '', { httpOnly: true, expires: new Date(0) });
+    res.cookie('jwt', '', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV !== 'development',
+        sameSite: 'none',
+        expires: new Date(0)
+    });
     res.status(200).json({ message: 'Logged out successfully' });
 };
 
@@ -110,7 +122,8 @@ export const getUserProfile = async (req, res) => {
                 projectInterests: user.projectInterests,
                 totalEarnings: user.totalEarnings,
                 totalSpent: user.totalSpent,
-                newMessages: user.newMessages
+                newMessages: user.newMessages,
+                profileComplete: user.profileComplete,
             });
         } else {
             res.status(404).json({ message: 'User not found' });
